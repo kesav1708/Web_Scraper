@@ -1,0 +1,47 @@
+from django.shortcuts import render,redirect
+import requests
+from bs4 import BeautifulSoup
+from .models import Link
+from django.http import HttpResponseRedirect,HttpResponse
+import csv
+
+# Create your views here.
+def Scrape(request):
+  if request.method == 'POST':
+    site = request.POST.get('site','')
+    page = requests.get(site)
+    soup = BeautifulSoup(page.text,'html.parser')
+
+    for link in soup('a'):
+      link_address = link.get('href')
+      link_text = link.string
+      Link.objects.create(address = link_address, name=link_text)
+    return HttpResponseRedirect('/')
+    
+
+  else:
+    data = Link.objects.all()
+    context={
+    'data' : data,
+    }
+
+  return render(request,'webscraper.html',context)
+
+def Clear(request):
+    Link.objects.all().delete()
+    return render(request,'webscraper.html')
+
+
+def download_csv(request):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="links.csv"'
+
+    write = csv.writer(response)
+    write.writerow(['Name', 'Address'])  # CSV header
+
+    links = Link.objects.all()
+    for link in links:
+        write.writerow([link.name, link.address])
+
+    return response
+
